@@ -5,6 +5,43 @@ const BACKEND_API_URL =
   process.env.BACKEND_API_URL ?? "http://localhost:8000";
 const TOKEN_COOKIE_NAME = "ppe_access_token";
 
+export type Medication = {
+  id: string;
+  name: string;
+  created_at: string;
+};
+
+// Comentário em pt-BR: função auxiliar para uso em Server Components
+// Retorna os dados diretamente sem NextResponse
+export async function getMedications(): Promise<Medication[]> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(TOKEN_COOKIE_NAME)?.value;
+
+  if (!token) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_API_URL}/medications`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("Falha ao carregar medicações:", response.statusText);
+      return [];
+    }
+
+    const data = (await response.json()) as Medication[];
+    return data;
+  } catch (error) {
+    console.error("Erro inesperado ao carregar medicações:", error);
+    return [];
+  }
+}
+
 export async function GET() {
   const cookieStore = await cookies();
   const token = cookieStore.get(TOKEN_COOKIE_NAME)?.value;
