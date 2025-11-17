@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 const TOKEN_COOKIE_NAME = "ppe_access_token";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(TOKEN_COOKIE_NAME)?.value;
 
@@ -25,5 +25,4 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ["/dashboard", "/dashboard/:path*", "/login"],
 };
-
 
