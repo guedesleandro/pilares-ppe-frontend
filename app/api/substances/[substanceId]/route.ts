@@ -6,9 +6,9 @@ const BACKEND_API_URL =
 const TOKEN_COOKIE_NAME = "ppe_access_token";
 
 type RouteContext = {
-  params: {
+  params: Promise<{
     substanceId: string;
-  };
+  }>;
 };
 
 function extractSubstanceId(
@@ -55,9 +55,10 @@ async function getTokenOrResponse(): Promise<string | NextResponse> {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const params = await context.params;
   const substanceId = extractSubstanceId(
     request,
-    context.params?.substanceId,
+    params?.substanceId,
   );
   const paramError = validateParam(substanceId);
   if (paramError) {
@@ -126,9 +127,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
+  const params = await context.params;
   const substanceId = extractSubstanceId(
     request,
-    context.params?.substanceId,
+    params?.substanceId,
   );
   const paramError = validateParam(substanceId);
   if (paramError) {

@@ -5,6 +5,50 @@ const BACKEND_API_URL =
   process.env.BACKEND_API_URL ?? "http://localhost:8000";
 const TOKEN_COOKIE_NAME = "ppe_access_token";
 
+export type ActivatorComposition = {
+  substance_id: string;
+  substance_name: string;
+  volume_ml: number;
+};
+
+export type Activator = {
+  id: string;
+  name: string;
+  created_at: string;
+  compositions: ActivatorComposition[];
+};
+
+// Comentário em pt-BR: função auxiliar para uso em Server Components
+// Retorna os dados diretamente sem NextResponse
+export async function getActivators(): Promise<Activator[]> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(TOKEN_COOKIE_NAME)?.value;
+
+  if (!token) {
+    return [];
+  }
+
+  try {
+    const response = await fetch(`${BACKEND_API_URL}/activators`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      console.error("Falha ao carregar ativadores:", response.statusText);
+      return [];
+    }
+
+    const data = (await response.json()) as Activator[];
+    return data;
+  } catch (error) {
+    console.error("Erro inesperado ao carregar ativadores:", error);
+    return [];
+  }
+}
+
 export async function GET() {
   const cookieStore = await cookies();
   const token = cookieStore.get(TOKEN_COOKIE_NAME)?.value;
