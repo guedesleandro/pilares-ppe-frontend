@@ -93,4 +93,60 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 }
 
+export async function DELETE(request: NextRequest, context: RouteContext) {
+  const params = await context.params;
+  const patientId = params?.patientId;
+  const url = new URL(request.url);
+  const cycleId = url.searchParams.get("cycle_id");
+
+  if (!patientId) {
+    return NextResponse.json(
+      { detail: "ID do paciente é obrigatório." },
+      { status: 400 },
+    );
+  }
+
+  if (!cycleId) {
+    return NextResponse.json(
+      { detail: "ID do ciclo é obrigatório." },
+      { status: 400 },
+    );
+  }
+
+  const tokenResult = await getTokenOrResponse();
+  if (tokenResult instanceof NextResponse) {
+    return tokenResult;
+  }
+
+  try {
+    const response = await fetch(
+      `${BACKEND_API_URL}/cycles/${cycleId}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${tokenResult}`,
+        },
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      return NextResponse.json(
+        errorData ?? { detail: "Não foi possível deletar o ciclo." },
+        { status: response.status },
+      );
+    }
+
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error("Erro ao deletar ciclo:", error);
+    return NextResponse.json(
+      {
+        detail: "Erro ao conectar com o servidor de ciclos. Tente novamente.",
+      },
+      { status: 500 },
+    );
+  }
+}
 

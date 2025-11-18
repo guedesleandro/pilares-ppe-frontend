@@ -13,6 +13,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Control } from "react-hook-form";
 import { toast } from "sonner";
 import {
+  ArrowDown,
+  ArrowUp,
   CalendarDays,
   ChevronDown,
   ClipboardList,
@@ -21,6 +23,7 @@ import {
   NotebookText,
   Pill,
   PlusCircle,
+  Trash2,
 } from "lucide-react";
 
 import type {
@@ -29,6 +32,7 @@ import type {
 } from "@/app/api/patients/[patientId]/summary/route";
 import type { Medication } from "@/app/api/medications/route";
 import type { Activator } from "@/app/api/activators/route";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -213,6 +217,8 @@ export function PatientCycles({ patientId, cycles }: PatientCyclesProps) {
   const [isCycleSubmitting, setCycleSubmitting] = useState(false);
   const [isSessionSubmitting, setSessionSubmitting] = useState(false);
   const [isRefreshing, startTransition] = useTransition();
+  const [isDeletingCycle, setIsDeletingCycle] = useState<string | null>(null);
+  const [isDeletingSession, setIsDeletingSession] = useState<string | null>(null);
 
   useEffect(() => {
     if (!cycles.length) {
@@ -432,6 +438,59 @@ export function PatientCycles({ patientId, cycles }: PatientCyclesProps) {
     }
   };
 
+  const onDeleteCycle = async (cycleId: string) => {
+    setIsDeletingCycle(cycleId);
+    try {
+      const response = await fetch(
+        `/api/patients/${patientId}/cycles?cycle_id=${cycleId}`,
+        {
+          method: "DELETE",
+        },
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        toast.error(
+          errorData?.detail ?? "Não foi possível deletar o ciclo. Tente novamente.",
+        );
+        return;
+      }
+
+      toast.success("Ciclo deletado com sucesso!");
+      startTransition(() => router.refresh());
+    } catch (error) {
+      console.error("Erro inesperado ao deletar ciclo:", error);
+      toast.error("Erro inesperado ao deletar o ciclo.");
+    } finally {
+      setIsDeletingCycle(null);
+    }
+  };
+
+  const onDeleteSession = async (sessionId: string) => {
+    setIsDeletingSession(sessionId);
+    try {
+      const response = await fetch(`/api/sessions/${sessionId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        toast.error(
+          errorData?.detail ?? "Não foi possível deletar a sessão. Tente novamente.",
+        );
+        return;
+      }
+
+      toast.success("Sessão deletada com sucesso!");
+      startTransition(() => router.refresh());
+    } catch (error) {
+      console.error("Erro inesperado ao deletar sessão:", error);
+      toast.error("Erro inesperado ao deletar a sessão.");
+    } finally {
+      setIsDeletingSession(null);
+    }
+  };
+
   return (
     <>
       <Card className="border-none shadow-none p-0">
@@ -541,16 +600,53 @@ export function PatientCycles({ patientId, cycles }: PatientCyclesProps) {
                                 }) ?? "—"}
                               </p> */}
                             </div>
-                            {remainingSessions > 0 && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openSessionDialog(cycle.id, completedSessions)}
-                              >
-                                <PlusCircle className="mr-2 size-4" />
-                                Nova sessão
-                              </Button>
-                            )}
+                            <div className="flex items-center gap-2">
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={isDeletingCycle === cycle.id}
+                                    className="text-destructive hover:text-destructive"
+                                  >
+                                    {isDeletingCycle === cycle.id ? (
+                                      <Loader2 className="mr-2 size-4 animate-spin" />
+                                    ) : (
+                                      <Trash2 className="mr-2 size-4" />
+                                    )}
+                                    Deletar ciclo
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja deletar este ciclo? Esta ação irá remover o ciclo e todas as sessões associadas a ele. Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => onDeleteCycle(cycle.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Deletar
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+
+                              {remainingSessions > 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => openSessionDialog(cycle.id, completedSessions)}
+                                >
+                                  <PlusCircle className="mr-2 size-4" />
+                                  Nova sessão
+                                </Button>
+                              )}
+                            </div>
                           </div>
 
                           <div className="grid gap-5 md:grid-cols-2">
@@ -559,8 +655,11 @@ export function PatientCycles({ patientId, cycles }: PatientCyclesProps) {
                                 key={session.id}
                                 index={index}
                                 session={session}
+                                sessions={sessions}
                                 expanded={expandedNotes[session.id] ?? false}
                                 onToggleNotes={() => handleToggleNotes(session.id)}
+                                onDeleteSession={onDeleteSession}
+                                isDeletingSession={isDeletingSession}
                               />
                             ))}
                           </div>
@@ -1013,11 +1112,36 @@ function CompositionFieldInput({
 type SessionCardProps = {
   session: SessionDetails;
   index: number;
+  sessions: SessionDetails[];
   expanded: boolean;
   onToggleNotes: () => void;
+  onDeleteSession: (sessionId: string) => void;
+  isDeletingSession: string | null;
 };
 
-function SessionCard({ session, index, expanded, onToggleNotes }: SessionCardProps) {
+function calculateCompositionDifference(
+  currentValue: string | number | null | undefined,
+  previousValue: string | number | null | undefined,
+): { difference: number | null; isIncrease: boolean } {
+  if (currentValue == null || previousValue == null) {
+    return { difference: null, isIncrease: false };
+  }
+
+  const current = typeof currentValue === 'string' ? parseFloat(currentValue) : currentValue;
+  const previous = typeof previousValue === 'string' ? parseFloat(previousValue) : previousValue;
+
+  if (isNaN(current) || isNaN(previous)) {
+    return { difference: null, isIncrease: false };
+  }
+
+  const diff = current - previous;
+  return {
+    difference: Math.abs(diff),
+    isIncrease: diff > 0,
+  };
+}
+
+function SessionCard({ session, index, sessions, expanded, onToggleNotes, onDeleteSession, isDeletingSession }: SessionCardProps) {
   const dateLabel =
     formatDatePt(session.session_date, {
       day: "2-digit",
@@ -1027,33 +1151,98 @@ function SessionCard({ session, index, expanded, onToggleNotes }: SessionCardPro
       minute: "2-digit",
     }) ?? "Sem data";
 
+  // Obter sessão anterior para calcular diferenças
+  const previousSession = index > 0 ? sessions[index - 1] : null;
+
   const weightLabel = formatNumberPt(session.body_composition?.weight_kg, 1, 1);
+  const weightDiff = calculateCompositionDifference(
+    session.body_composition?.weight_kg,
+    previousSession?.body_composition?.weight_kg,
+  );
+
   const fatPercentage = formatNumberPt(
     session.body_composition?.fat_percentage,
     1,
     1,
   );
+  const fatPercentageDiff = calculateCompositionDifference(
+    session.body_composition?.fat_percentage,
+    previousSession?.body_composition?.fat_percentage,
+  );
+
   const muscleMass = formatNumberPt(
     session.body_composition?.muscle_mass_kg,
     1,
     1,
   );
+  const muscleMassDiff = calculateCompositionDifference(
+    session.body_composition?.muscle_mass_kg,
+    previousSession?.body_composition?.muscle_mass_kg,
+  );
+
   const h2oPercentage = formatNumberPt(
     session.body_composition?.h2o_percentage,
     1,
     1,
   );
+  const h2oPercentageDiff = calculateCompositionDifference(
+    session.body_composition?.h2o_percentage,
+    previousSession?.body_composition?.h2o_percentage,
+  );
+
   const metabolicAge = formatNumberPt(
     session.body_composition?.metabolic_age,
     0,
     0,
   );
+  const metabolicAgeDiff = calculateCompositionDifference(
+    session.body_composition?.metabolic_age,
+    previousSession?.body_composition?.metabolic_age,
+  );
+
   const visceralFat = formatNumberPt(
     session.body_composition?.visceral_fat,
     0,
     0,
   );
+  const visceralFatDiff = calculateCompositionDifference(
+    session.body_composition?.visceral_fat,
+    previousSession?.body_composition?.visceral_fat,
+  );
+
   const notes = session.notes?.trim();
+
+  const renderCompositionSpan = (
+    label: string,
+    value: string | null,
+    diff: { difference: number | null; isIncrease: boolean },
+  ) => {
+    if (!value) return null;
+
+    const hasDifference = diff.difference !== null && diff.difference !== 0;
+    const differenceText = hasDifference ? formatNumberPt(diff.difference, 1, 1) : null;
+
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground",
+          hasDifference && (diff.isIncrease ? "text-red-600" : "text-green-600"),
+        )}
+      >
+        {label} {value}
+        {hasDifference && differenceText && (
+          <>
+            {diff.isIncrease ? (
+              <ArrowUp className="size-3 text-red-500" />
+            ) : (
+              <ArrowDown className="size-3 text-green-500" />
+            )}
+            <span className="text-xs">({differenceText})</span>
+          </>
+        )}
+      </span>
+    );
+  };
 
   return (
     <div className="space-y-4 rounded-xl border border-border/80 bg-background p-4 shadow-sm">
@@ -1063,9 +1252,45 @@ function SessionCard({ session, index, expanded, onToggleNotes }: SessionCardPro
             Sessão {index + 1}
           </p>
         </div>
-        <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-          Realizada
-        </span>
+        <div className="flex items-center gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={isDeletingSession === session.id}
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+              >
+                {isDeletingSession === session.id ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Trash2 className="size-4" />
+                )}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja deletar esta sessão? Esta ação irá remover permanentemente os dados da sessão, incluindo a composição corporal. Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => onDeleteSession(session.id)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Deletar
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+            Realizada
+          </span>
+        </div>
       </div>
 
       <div className="grid gap-3 text-sm text-muted-foreground md:grid-cols-2">
@@ -1107,36 +1332,12 @@ function SessionCard({ session, index, expanded, onToggleNotes }: SessionCardPro
         <div className="rounded-lg border border-border/60 bg-muted/30 p-3 text-sm text-muted-foreground">
           {/* <p className="font-medium text-foreground">Composição</p> */}
           <div className="mt-1 flex flex-wrap gap-3">
-            {weightLabel && (
-              <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground">
-                Peso {weightLabel} kg
-              </span>
-            )}
-            {fatPercentage && (
-              <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground">
-                Gordura {fatPercentage}%
-              </span>
-            )}
-            {muscleMass && (
-              <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground">
-                Massa muscular {muscleMass} kg
-              </span>
-            )}
-            {h2oPercentage && (
-              <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground">
-                H2O {h2oPercentage}%
-              </span>
-            )}
-            {metabolicAge && (
-              <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground">
-                Idade metabólica {metabolicAge}
-              </span>
-            )}
-            {visceralFat && (
-              <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground">
-                Gordura visceral {visceralFat}
-              </span>
-            )}
+            {renderCompositionSpan("Peso", weightLabel ? `${weightLabel} kg` : null, weightDiff)}
+            {renderCompositionSpan("Gordura", fatPercentage ? `${fatPercentage}%` : null, fatPercentageDiff)}
+            {renderCompositionSpan("Massa muscular", muscleMass ? `${muscleMass} kg` : null, muscleMassDiff)}
+            {renderCompositionSpan("H2O", h2oPercentage ? `${h2oPercentage}%` : null, h2oPercentageDiff)}
+            {renderCompositionSpan("Idade metabólica", metabolicAge, metabolicAgeDiff)}
+            {renderCompositionSpan("Gordura visceral", visceralFat, visceralFatDiff)}
           </div>
         </div>
       ) : (
