@@ -493,8 +493,8 @@ export function PatientCycles({ patientId, cycles }: PatientCyclesProps) {
 
   return (
     <>
-      <Card className="border-none shadow-none p-0">
-        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="border-none shadow-none p-0">
+        <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
           <div>
             <CardTitle className="text-xl">Ciclos e sessões</CardTitle>
           </div>
@@ -687,7 +687,7 @@ export function PatientCycles({ patientId, cycles }: PatientCyclesProps) {
             </div>
           )}
         </CardContent>
-      </Card>
+      </div>
 
       <Dialog open={isCycleDialogOpen} onOpenChange={setCycleDialogOpen}>
         <DialogContent>

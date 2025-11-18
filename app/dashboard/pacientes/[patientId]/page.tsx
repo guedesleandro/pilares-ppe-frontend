@@ -130,7 +130,7 @@ export default async function PatientDetailPage({
 
   return (
     <div className="space-y-6">
-      <Card className="border-none shadow-none p-0">
+      <div className="border-none shadow-none p-0">
         <CardContent className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-4">
             <Avatar className="h-14 w-14 text-lg font-semibold">
@@ -164,9 +164,9 @@ export default async function PatientDetailPage({
             />
           </div>
         </CardContent>
-      </Card>
+      </div>
 
-      <Card className="border-none shadow-none p-0">
+      <div className="border-none shadow-none p-0">
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-3">
             <InfoRow label="Local de tratamento" value={treatmentLocationLabel} />
@@ -180,16 +180,16 @@ export default async function PatientDetailPage({
             />
           </dl>
         </CardContent>
-      </Card>
+      </div>
 
-      <Card className="border-none shadow-none p-0">
+      <div className="border-none shadow-none p-0">
         <CardContent>
           <BodyCompositionComparison
             initial={summary.body_composition_initial}
             latest={summary.body_composition_latest}
           />
         </CardContent>
-      </Card>
+      </div>
 
       <PatientCycles patientId={summary.id} cycles={summary.cycles ?? []} />
     </div>

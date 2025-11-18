@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 30, // 30 minutos - deve acompanhar o backend
+      maxAge: 60 * 1440, // 24 horas - deve acompanhar o backend (ACCESS_TOKEN_EXPIRE_MINUTES)
     });
 
     return nextResponse;
