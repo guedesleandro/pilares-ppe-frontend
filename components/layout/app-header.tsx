@@ -25,6 +25,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+function isUUID(str: string): boolean {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(str);
+}
+
 function getBreadcrumbSegments(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
 
@@ -44,10 +50,21 @@ function getBreadcrumbSegments(pathname: string) {
   const items: { label: string; href: string }[] = [];
   let href = "";
 
-  for (const segment of segments) {
+  for (let i = 0; i < segments.length; i++) {
+    const segment = segments[i];
     href += `/${segment}`;
-    const label = mapLabel[segment] ?? segment;
-    items.push({ label, href });
+
+    // Comentário em pt-BR: se o segmento anterior é "pacientes" e o atual é um UUID, usa "Ficha do Paciente"
+    if (
+      i > 0 &&
+      segments[i - 1] === "pacientes" &&
+      isUUID(segment)
+    ) {
+      items.push({ label: "Ficha do Paciente", href });
+    } else {
+      const label = mapLabel[segment] ?? segment;
+      items.push({ label, href });
+    }
   }
 
   return items;
