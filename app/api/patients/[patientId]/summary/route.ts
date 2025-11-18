@@ -22,7 +22,59 @@ export type BodyCompositionSummary = {
   visceral_fat: number;
 };
 
-export type PatientSummary = {
+export type ActivatorCompositionSummary = {
+  substance_id: string;
+  volume_ml: number;
+  substance_name: string;
+};
+
+export type ActivatorSummary = {
+  id: string;
+  name: string;
+  created_at: string;
+  compositions: ActivatorCompositionSummary[];
+};
+
+export type SessionBodyComposition = {
+  id: string;
+  patient_id: string;
+  session_id: string;
+  weight_kg: string;
+  fat_percentage: string;
+  fat_kg: string;
+  muscle_mass_kg: string;
+  h2o_percentage: string;
+  metabolic_age: number;
+  visceral_fat: number;
+  created_at: string;
+};
+
+export type SessionDetails = {
+  id: string;
+  cycle_id: string;
+  medication_id: string;
+  activator_id: string | null;
+  dosage_mg: number | null;
+  session_date: string;
+  notes: string | null;
+  created_at: string;
+  medication: MedicationSummary | null;
+  activator: ActivatorSummary | null;
+  body_composition: SessionBodyComposition | null;
+};
+
+export type CycleWithSessions = {
+  id: string;
+  patient_id: string;
+  max_sessions: number;
+  periodicity: "weekly" | "biweekly" | "monthly";
+  type: "normal" | "maintenance";
+  cycle_date: string;
+  created_at: string;
+  sessions: SessionDetails[];
+};
+
+type PatientSummaryBase = {
   id: string;
   name: string;
   process_number: string | null;
@@ -36,6 +88,10 @@ export type PatientSummary = {
   last_session_date: string | null;
   body_composition_initial: BodyCompositionSummary | null;
   body_composition_latest: BodyCompositionSummary | null;
+};
+
+export type PatientSummary = PatientSummaryBase & {
+  cycles: CycleWithSessions[];
 };
 
 type RouteContext = {
@@ -58,16 +114,40 @@ async function getTokenOrResponse(): Promise<string | NextResponse> {
   return token;
 }
 
-export async function getPatientSummary(
+async function fetchPatientCycles(
   patientId: string,
-): Promise<PatientSummary | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(TOKEN_COOKIE_NAME)?.value;
+  token: string,
+): Promise<CycleWithSessions[]> {
+  try {
+    const response = await fetch(
+      `${BACKEND_API_URL}/patients/${patientId}/cycles`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        cache: "no-store",
+      },
+    );
 
-  if (!token) {
-    return null;
+    if (!response.ok) {
+      console.error(
+        "Falha ao carregar os ciclos do paciente:",
+        response.statusText,
+      );
+      return [];
+    }
+
+    return (await response.json()) as CycleWithSessions[];
+  } catch (error) {
+    console.error("Erro inesperado ao carregar os ciclos do paciente:", error);
+    return [];
   }
+}
 
+async function fetchPatientSummaryBase(
+  patientId: string,
+  token: string,
+): Promise<PatientSummaryBase | null> {
   try {
     const response = await fetch(
       `${BACKEND_API_URL}/patients/${patientId}/summary`,
@@ -87,11 +167,36 @@ export async function getPatientSummary(
       return null;
     }
 
-    return (await response.json()) as PatientSummary;
+    return (await response.json()) as PatientSummaryBase;
   } catch (error) {
     console.error("Erro inesperado ao carregar o resumo do paciente:", error);
     return null;
   }
+}
+
+export async function getPatientSummary(
+  patientId: string,
+): Promise<PatientSummary | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(TOKEN_COOKIE_NAME)?.value;
+
+  if (!token) {
+    return null;
+  }
+
+  const [summaryBase, cycles] = await Promise.all([
+    fetchPatientSummaryBase(patientId, token),
+    fetchPatientCycles(patientId, token),
+  ]);
+
+  if (!summaryBase) {
+    return null;
+  }
+
+  return {
+    ...summaryBase,
+    cycles,
+  };
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -129,8 +234,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const data = await response.json();
-    return NextResponse.json(data);
+    const baseSummary = (await response.json()) as PatientSummaryBase;
+    const cycles = await fetchPatientCycles(patientId, tokenResult);
+    return NextResponse.json({
+      ...baseSummary,
+      cycles,
+    });
   } catch (error) {
     console.error("Erro ao carregar o resumo do paciente:", error);
     return NextResponse.json(

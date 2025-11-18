@@ -5,6 +5,7 @@ import {
   type BodyCompositionSummary,
 } from "@/app/api/patients/[patientId]/summary/route";
 import { PatientActions } from "@/components/patients/patient-actions";
+import { PatientCycles } from "@/components/patients/patient-cycles";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -129,7 +130,7 @@ export default async function PatientDetailPage({
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-none shadow-none p-0">
         <CardContent className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-start gap-4">
             <Avatar className="h-14 w-14 text-lg font-semibold">
@@ -165,10 +166,7 @@ export default async function PatientDetailPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Informações gerais</CardTitle>
-        </CardHeader>
+      <Card className="border-none shadow-none p-0">
         <CardContent>
           <dl className="grid gap-4 sm:grid-cols-3">
             <InfoRow label="Local de tratamento" value={treatmentLocationLabel} />
@@ -184,10 +182,7 @@ export default async function PatientDetailPage({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Composição corporal</CardTitle>
-        </CardHeader>
+      <Card className="border-none shadow-none p-0">
         <CardContent>
           <BodyCompositionComparison
             initial={summary.body_composition_initial}
@@ -195,6 +190,8 @@ export default async function PatientDetailPage({
           />
         </CardContent>
       </Card>
+
+      <PatientCycles patientId={summary.id} cycles={summary.cycles ?? []} />
     </div>
   );
 }
@@ -228,7 +225,7 @@ function BodyCompositionComparison({
     return (
       <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground">
         <AlertTriangle className="size-5 text-amber-500" />
-        Nenhuma composição corporal foi registrada para este paciente.
+        Nenhuma composição corporal foi registada para este paciente.
       </div>
     );
   }
@@ -254,7 +251,7 @@ function CompositionColumn({ title, data, compareWith }: CompositionColumnProps)
         <p className="text-sm font-medium text-muted-foreground">{title}</p>
         {data?.registered_at ? (
           <p className="text-sm text-muted-foreground">
-            Registrado em{" "}
+           
             {formatDatePt(data.registered_at, {
               day: "2-digit",
               month: "short",
@@ -264,7 +261,7 @@ function CompositionColumn({ title, data, compareWith }: CompositionColumnProps)
             })}
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">Sem data registrada</p>
+          <p className="text-sm text-muted-foreground">Sem data registada</p>
         )}
       </div>
 
@@ -281,7 +278,7 @@ function CompositionColumn({ title, data, compareWith }: CompositionColumnProps)
         </dl>
       ) : (
         <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
-          Nenhum registro disponível.
+          Nenhum registo disponível.
         </div>
       )}
     </div>
