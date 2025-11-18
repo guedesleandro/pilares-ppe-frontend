@@ -25,6 +25,55 @@ async function getTokenOrResponse(): Promise<string | NextResponse> {
   return token;
 }
 
+export async function PUT(request: NextRequest, context: RouteContext) {
+  const params = await context.params;
+  const patientId = params?.patientId;
+
+  if (!patientId) {
+    return NextResponse.json(
+      { detail: "ID do paciente é obrigatório." },
+      { status: 400 },
+    );
+  }
+
+  const tokenResult = await getTokenOrResponse();
+  if (tokenResult instanceof NextResponse) {
+    return tokenResult;
+  }
+
+  try {
+    const body = await request.json();
+    const response = await fetch(`${BACKEND_API_URL}/patients/${patientId}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${tokenResult}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      return NextResponse.json(
+        errorData ?? { detail: "Não foi possível atualizar o paciente." },
+        { status: response.status },
+      );
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Erro ao atualizar paciente:", error);
+    return NextResponse.json(
+      {
+        detail: "Erro ao conectar com o servidor de pacientes. Tente novamente.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
 export async function DELETE(request: NextRequest, context: RouteContext) {
   const params = await context.params;
   const patientId = params?.patientId;

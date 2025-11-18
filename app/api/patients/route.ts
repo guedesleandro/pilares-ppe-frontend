@@ -73,6 +73,52 @@ export async function getPatients(
   }
 }
 
+export async function POST(request: NextRequest) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(TOKEN_COOKIE_NAME)?.value;
+
+  if (!token) {
+    return NextResponse.json(
+      { detail: "Não autenticado. Faça login para continuar." },
+      { status: 401 },
+    );
+  }
+
+  try {
+    const body = await request.json();
+
+    const response = await fetch(`${BACKEND_API_URL}/patients`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      return NextResponse.json(
+        errorData ?? {
+          detail: "Não foi possível criar o paciente.",
+        },
+        { status: response.status },
+      );
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data, { status: 201 });
+  } catch (error) {
+    console.error("Erro ao criar paciente:", error);
+    return NextResponse.json(
+      {
+        detail: "Erro ao conectar com o servidor. Tente novamente.",
+      },
+      { status: 500 },
+    );
+  }
+}
+
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
   const token = cookieStore.get(TOKEN_COOKIE_NAME)?.value;

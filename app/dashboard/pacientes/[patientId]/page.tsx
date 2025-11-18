@@ -8,7 +8,7 @@ import { PatientActions } from "@/components/patients/patient-actions";
 import { PatientCycles } from "@/components/patients/patient-cycles";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   calculateAge,
   calculateTrend,
@@ -161,6 +161,14 @@ export default async function PatientDetailPage({
             <PatientActions
               patientId={summary.id}
               patientName={summary.name}
+              patientData={{
+                name: summary.name,
+                gender: summary.gender,
+                birth_date: summary.birth_date,
+                process_number: summary.process_number,
+                treatment_location: summary.treatment_location,
+                preferred_medication_id: summary.preferred_medication?.id,
+              }}
             />
           </div>
         </CardContent>
@@ -266,7 +274,7 @@ function CompositionColumn({ title, data, compareWith }: CompositionColumnProps)
       </div>
 
       {data ? (
-        <dl className="space-y-4">
+        <dl className="space-y-4 grid grid-cols-2 gap-3">
           {COMPOSITION_FIELDS.map((field) => (
             <CompositionRow
               key={field.key}
@@ -300,7 +308,7 @@ function CompositionRow({ field, current, reference }: CompositionRowProps) {
   const trend = getTrendData(field, value, referenceValue);
 
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-border/50 bg-background/60 p-4">
+    <div className="flex flex-col gap-1 rounded-lg border border-border/50 bg-background/60 p-4 w-full mb-0">
       <dt className="text-sm font-medium text-muted-foreground">{field.label}</dt>
       <div className="flex flex-wrap items-center gap-2">
         <dd className="text-lg font-semibold text-foreground">{formattedValue}</dd>

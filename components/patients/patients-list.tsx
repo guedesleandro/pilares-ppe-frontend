@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Loader2, Search, Users } from "lucide-react";
+import { Loader2, Plus, Search, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,6 +12,7 @@ import {
   ItemTitle,
   ItemDescription,
 } from "@/components/ui/item";
+import { PatientCreateDialog } from "./patient-create-dialog";
 import type { PatientsListResponse } from "@/app/api/patients/route";
 
 type PatientsListProps = {
@@ -44,6 +45,7 @@ export function PatientsList({
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   useEffect(() => {
     const handler = setTimeout(() => setDebouncedSearch(searchValue), 400);
@@ -125,6 +127,23 @@ export function PatientsList({
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-4 rounded-2xl bg-card/40 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Pacientes</h1>
+          <p className="text-sm text-muted-foreground">
+            {/* Comentário em pt-BR: copy introdutório da tela */}
+            Consulte pacientes, consulte ciclos e acesse detalhes individuais.
+          </p>
+        </div>
+        <Button
+          onClick={() => setCreateDialogOpen(true)}
+          className="cursor-pointer self-start sm:self-auto"
+        >
+          <Plus className="mr-2 size-4" />
+          Adicionar
+        </Button>
+      </div>
+
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-1 items-center gap-2">
           <Search className="h-4 w-4 text-muted-foreground" />
@@ -206,6 +225,11 @@ export function PatientsList({
           Próxima
         </Button>
       </div>
+
+      <PatientCreateDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+      />
     </div>
   );
 }
