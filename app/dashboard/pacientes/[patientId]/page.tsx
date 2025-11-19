@@ -199,7 +199,11 @@ export default async function PatientDetailPage({
         </CardContent>
       </div>
 
-      <PatientCycles patientId={summary.id} cycles={summary.cycles ?? []} />
+      <PatientCycles 
+        patientId={summary.id} 
+        cycles={summary.cycles ?? []} 
+        preferredMedicationId={summary.preferred_medication?.id ?? null}
+      />
     </div>
   );
 }

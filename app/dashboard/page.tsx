@@ -1,46 +1,96 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getDashboardStats } from "@/app/api/dashboard/stats/route";
+import { formatNumberPt } from "@/lib/utils";
+import { ActivatorsChart } from "@/components/dashboard/activators-chart";
+import { MedicationsChart } from "@/components/dashboard/medications-chart";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const stats = await getDashboardStats();
+
   return (
-    <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-      <Card>
-        <CardHeader>
-          <CardTitle>Pacientes ativos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold">0</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {/* Comentário em pt-BR: valor estático como placeholder para métricas futuras */}
-            Em acompanhamento nos ciclos atuais.
-          </p>
-        </CardContent>
-      </Card>
+    <div className="space-y-6">
+      {/* Métricas */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Total de Pacientes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">
+              {stats?.total_patients ?? 0}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Pacientes cadastrados no sistema.
+            </p>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Próximas sessões</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-3xl font-semibold">0</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Sessões agendadas para os próximos 7 dias.
-          </p>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Sessões nos Últimos 30 dias</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">
+              {stats?.sessions_last_30_days ?? 0}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Sessões realizadas no último mês.
+            </p>
+          </CardContent>
+        </Card>
 
-      <Card className="md:col-span-2 xl:col-span-1">
-        <CardHeader>
-          <CardTitle>Resumo geral</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {/* Comentário em pt-BR: seção de resumo será alimentada com dados reais na próxima etapa */}
-            Aqui ficará um resumo da evolução dos pacientes, ciclos ativos e
-            alertas importantes.
-          </p>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Total de Quilos Perdidos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-3xl font-semibold">
+              {stats?.total_weight_lost_kg !== undefined
+                ? formatNumberPt(stats.total_weight_lost_kg, 1, 1) ?? "0,0"
+                : "0,0"}
+              <span className="text-lg"> kg</span>
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Soma da diferença de peso de todos os pacientes (primeira vs última
+              sessão).
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Gráficos */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Ativadores Mais Utilizados</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats?.activators_usage && stats.activators_usage.length > 0 ? (
+              <ActivatorsChart data={stats.activators_usage} />
+            ) : (
+              <div className="flex h-[400px] items-center justify-center text-muted-foreground">
+                Nenhum ativador utilizado ainda
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Medicação Preferencial Mais Optada</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats?.medications_preference &&
+            stats.medications_preference.length > 0 ? (
+              <MedicationsChart data={stats.medications_preference} />
+            ) : (
+              <div className="flex h-[400px] items-center justify-center text-muted-foreground">
+                Nenhuma medicação preferencial registrada ainda
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
-

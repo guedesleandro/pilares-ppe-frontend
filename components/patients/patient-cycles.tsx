@@ -71,6 +71,7 @@ import { cn, formatDatePt, formatNumberPt } from "@/lib/utils";
 type PatientCyclesProps = {
   patientId: string;
   cycles: CycleWithSessions[];
+  preferredMedicationId?: string | null;
 };
 
 type MedicationOption = Pick<Medication, "id" | "name">;
@@ -199,7 +200,7 @@ const sessionFormSchema = z.object({
 
 type SessionFormValues = z.infer<typeof sessionFormSchema>;
 
-export function PatientCycles({ patientId, cycles }: PatientCyclesProps) {
+export function PatientCycles({ patientId, cycles, preferredMedicationId }: PatientCyclesProps) {
   const router = useRouter();
   const [openCycles, setOpenCycles] = useState<Set<string>>(
     () => new Set(cycles[0] ? [cycles[0].id] : []),
@@ -332,7 +333,7 @@ export function PatientCycles({ patientId, cycles }: PatientCyclesProps) {
     setSessionDialogOpen(true);
     sessionForm.reset({
       session_date: buildDateTimeLocalValue(),
-      medication_id: "",
+      medication_id: preferredMedicationId ?? "",
       activator_id: undefined,
       dosage_mg: "",
       notes: "",
