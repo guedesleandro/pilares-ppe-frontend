@@ -59,7 +59,7 @@ export function SubstancesList({ substances }: SubstancesListProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    setItems(substances);
+    setItems([...substances].sort((a, b) => a.name.localeCompare(b.name)));
   }, [substances]);
 
   const handleOpenEditDialog = (substance: Substance) => {
@@ -169,7 +169,9 @@ export function SubstancesList({ substances }: SubstancesListProps) {
 
       const updatedSubstance = (await response.json()) as Substance;
       setItems((prev) =>
-        prev.map((item) => (item.id === updatedSubstance.id ? updatedSubstance : item)),
+        prev
+          .map((item) => (item.id === updatedSubstance.id ? updatedSubstance : item))
+          .sort((a, b) => a.name.localeCompare(b.name)),
       );
       toast.success("Substância atualizada com sucesso.");
       handleCloseEditDialog();

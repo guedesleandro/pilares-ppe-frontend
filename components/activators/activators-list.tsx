@@ -110,8 +110,12 @@ export function ActivatorsList({ activators, substances }: ActivatorsListProps) 
   const [isAdding, setIsAdding] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const sortedSubstances = useMemo(() => {
+    return [...substances].sort((a, b) => a.name.localeCompare(b.name));
+  }, [substances]);
+
   const [addCompositions, setAddCompositions] = useState<CompositionFormItem[]>(() =>
-    substances.length > 0 ? [createCompositionRow(substances[0].id)] : [],
+    substances.length > 0 ? [createCompositionRow([...substances].sort((a, b) => a.name.localeCompare(b.name))[0].id)] : [],
   );
   const [editCompositions, setEditCompositions] = useState<CompositionFormItem[]>([]);
 
@@ -134,7 +138,7 @@ export function ActivatorsList({ activators, substances }: ActivatorsListProps) 
     setAddNameError(null);
     setAddCompositionError(null);
     setAddCompositions(
-      substances.length > 0 ? [createCompositionRow(substances[0].id)] : [],
+      sortedSubstances.length > 0 ? [createCompositionRow(sortedSubstances[0].id)] : [],
     );
     setIsAdding(false);
   };
@@ -188,14 +192,14 @@ export function ActivatorsList({ activators, substances }: ActivatorsListProps) 
   const handleAddCompositionRow = () => {
     setAddCompositions((prev) => [
       ...prev,
-      createCompositionRow(substances[0]?.id ?? ""),
+      createCompositionRow(sortedSubstances[0]?.id ?? ""),
     ]);
   };
 
   const handleEditCompositionRow = () => {
     setEditCompositions((prev) => [
       ...prev,
-      createCompositionRow(substances[0]?.id ?? ""),
+      createCompositionRow(sortedSubstances[0]?.id ?? ""),
     ]);
   };
 
@@ -432,60 +436,54 @@ export function ActivatorsList({ activators, substances }: ActivatorsListProps) 
     ) => void,
     onRemove: (rowId: string) => void,
   ) => (
-    <div className="space-y-4">
-      {compositions.map((composition, index) => (
+    <div className="space-y-3">
+      {compositions.map((composition) => (
         <div
           key={composition.rowId}
-          className="space-y-4 rounded-lg border border-dashed p-4"
+          className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed p-3"
         >
-          <div className="flex items-center justify-between text-sm font-medium">
-            <span>Composição {index + 1}</span>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={() => onRemove(composition.rowId)}
-              disabled={compositions.length === 1}
-              aria-label="Remover composição"
+          <div className="flex-1 min-w-[200px]">
+            <Select
+              value={composition.substance_id}
+              onValueChange={(value) => onChange(composition.rowId, "substance_id", value)}
             >
-              <Minus className="size-4" />
-            </Button>
+              <SelectTrigger className="w-full justify-between">
+                <SelectValue placeholder="Selecione a substância" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortedSubstances.map((substance) => (
+                  <SelectItem key={substance.id} value={substance.id}>
+                    {substance.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="grid w-full items-center gap-2">
-              <Label>Substância</Label>
-              <Select
-                value={composition.substance_id}
-                onValueChange={(value) => onChange(composition.rowId, "substance_id", value)}
-              >
-                <SelectTrigger className="w-full justify-between">
-                  <SelectValue placeholder="Selecione a substância" />
-                </SelectTrigger>
-                <SelectContent>
-                  {substances.map((substance) => (
-                    <SelectItem key={substance.id} value={substance.id}>
-                      {substance.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid w-full items-center gap-2">
-              <Label htmlFor={`volume-${composition.rowId}`}>Volume (ml)</Label>
-              <Input
-                id={`volume-${composition.rowId}`}
-                type="number"
-                inputMode="decimal"
-                step="0.01"
-                min="0"
-                value={composition.volume_ml}
-                onChange={(event) => onChange(composition.rowId, "volume_ml", event.target.value)}
-                placeholder="Informe o volume em ml"
-              />
-            </div>
+          <div className="w-[120px]">
+            <Input
+              id={`volume-${composition.rowId}`}
+              type="number"
+              inputMode="decimal"
+              step="0.01"
+              min="0"
+              value={composition.volume_ml}
+              onChange={(event) => onChange(composition.rowId, "volume_ml", event.target.value)}
+              placeholder="Volume (ml)"
+            />
           </div>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => onRemove(composition.rowId)}
+            disabled={compositions.length === 1}
+            aria-label="Remover composição"
+            className="shrink-0"
+          >
+            <Minus className="size-4" />
+          </Button>
         </div>
       ))}
     </div>
@@ -545,9 +543,9 @@ export function ActivatorsList({ activators, substances }: ActivatorsListProps) 
                   {activator.compositions.length === 0 ? (
                     <span>Sem composições cadastradas.</span>
                   ) : (
-                    activator.compositions.map((composition) => (
+                    activator.compositions.map((composition, index) => (
                       <span
-                        key={`${activator.id}-${composition.substance_id}`}
+                        key={`${activator.id}-${composition.substance_id}-${composition.volume_ml}-${index}`}
                         className="rounded-full border border-border px-2 py-0.5"
                       >
                         {composition.substance_name} • {formatVolume(composition.volume_ml)}
