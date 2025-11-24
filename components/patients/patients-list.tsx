@@ -13,7 +13,11 @@ import {
   ItemDescription,
 } from "@/components/ui/item";
 import { PatientCreateDialog } from "./patient-create-dialog";
-import type { PatientsListResponse } from "@/app/api/patients/route";
+import {
+  ApiError,
+  listPatients,
+  type PatientsListResponse,
+} from "@/lib/api";
 
 type PatientsListProps = {
   initialData: PatientsListResponse | null;
@@ -72,35 +76,20 @@ export function PatientsList({
     setIsLoading(true);
     setErrorMessage(null);
 
-    const params = new URLSearchParams({
-      page: String(page),
-      page_size: String(data.page_size || defaultPageSize),
-    });
-
-    if (search) {
-      params.set("search", search);
-    }
-
     try {
-      const response = await fetch(`/api/patients?${params.toString()}`, {
-        cache: "no-store",
+      const payload = await listPatients({
+        page,
+        pageSize: data.page_size || defaultPageSize,
+        search,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const message =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível carregar os pacientes.";
-        setErrorMessage(message);
-        return;
-      }
-
-      const payload = (await response.json()) as PatientsListResponse;
       setData(payload);
     } catch (error) {
-      console.error("Erro ao carregar pacientes:", error);
-      setErrorMessage("Erro inesperado ao carregar pacientes.");
+      if (error instanceof ApiError) {
+        setErrorMessage(error.message ?? "Não foi possível carregar os pacientes.");
+      } else {
+        console.error("Erro ao carregar pacientes:", error);
+        setErrorMessage("Erro inesperado ao carregar pacientes.");
+      }
     } finally {
       setIsLoading(false);
     }

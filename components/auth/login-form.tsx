@@ -13,6 +13,11 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  ApiError,
+  login,
+  setAuthTokenCookie,
+} from "@/lib/api";
 
 export function LoginForm() {
   const router = useRouter();
@@ -29,33 +34,29 @@ export function LoginForm() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
+      const data = await login(username, password);
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => null);
-        const detail =
-          typeof data?.detail === "string"
-            ? data.detail
-            : "Usuário ou senha inválidos.";
-
-        setError(detail);
+      if (!data.access_token) {
+        setError("Resposta inválida do servidor de autenticação.");
         return;
       }
 
-      // Comentário em pt-BR: login bem-sucedido, redireciona para o dashboard
+      setAuthTokenCookie(data.access_token);
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      console.error("Erro ao fazer login:", err);
-      setError(
-        "Ocorreu um erro ao tentar fazer login. Verifique sua conexão e tente novamente.",
-      );
+      if (err instanceof ApiError) {
+        setError(
+          err.status === 401
+            ? err.message || "Usuário ou senha inválidos."
+            : err.message,
+        );
+      } else {
+        console.error("Erro ao fazer login:", err);
+        setError(
+          "Ocorreu um erro ao tentar fazer login. Verifique sua conexão e tente novamente.",
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }

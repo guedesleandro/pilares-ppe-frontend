@@ -7,7 +7,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(TOKEN_COOKIE_NAME)?.value;
 
-  // Comentário em pt-BR: protege o dashboard - se não houver token, redireciona para /login
+  // protege o dashboard - se não houver token, redireciona para /login
   if (pathname.startsWith("/dashboard") && !token) {
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);

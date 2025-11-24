@@ -32,12 +32,15 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@/components/ui/item";
+import {
+  ApiError,
+  type Substance,
+  createSubstance as createSubstanceRequest,
+  deleteSubstance as deleteSubstanceRequest,
+  updateSubstance as updateSubstanceRequest,
+} from "@/lib/api";
 
-export type Substance = {
-  id: string;
-  name: string;
-  created_at: string;
-};
+export type { Substance } from "@/lib/api";
 
 type SubstancesListProps = {
   substances: Substance[];
@@ -59,7 +62,7 @@ export function SubstancesList({ substances }: SubstancesListProps) {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    setItems([...substances].sort((a, b) => a.name.localeCompare(b.name)));
+    setItems(substances);
   }, [substances]);
 
   const handleOpenEditDialog = (substance: Substance) => {
@@ -103,32 +106,20 @@ export function SubstancesList({ substances }: SubstancesListProps) {
     setAddFormError(null);
 
     try {
-      const response = await fetch("/api/substances", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: trimmedName }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível criar a substância.";
-        setAddFormError(detail);
-        toast.error(detail);
-        return;
-      }
-
-      const newSubstance = (await response.json()) as Substance;
-      setItems((prev) => [...prev, newSubstance].sort((a, b) => a.name.localeCompare(b.name)));
+      const newSubstance = await createSubstanceRequest({ name: trimmedName });
+      setItems((prev) => [...prev, newSubstance]);
       toast.success("Substância criada com sucesso.");
       handleCloseAddDialog();
     } catch (error) {
-      console.error("Erro ao criar substância:", error);
-      toast.error("Erro inesperado ao criar a substância.");
+      if (error instanceof ApiError) {
+        const message =
+          error.message ?? "Não foi possível criar a substância. Tente novamente.";
+        setAddFormError(message);
+        toast.error(message);
+      } else {
+        console.error("Erro ao criar substância:", error);
+        toast.error("Erro inesperado ao criar a substância.");
+      }
     } finally {
       setIsAdding(false);
     }
@@ -149,35 +140,25 @@ export function SubstancesList({ substances }: SubstancesListProps) {
     setFormError(null);
 
     try {
-      const response = await fetch(`/api/substances/${selectedSubstance.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: trimmedName }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível atualizar a substância.";
-        toast.error(detail);
-        return;
-      }
-
-      const updatedSubstance = (await response.json()) as Substance;
+      const updatedSubstance = await updateSubstanceRequest(
+        selectedSubstance.id,
+        { name: trimmedName },
+      );
       setItems((prev) =>
-        prev
-          .map((item) => (item.id === updatedSubstance.id ? updatedSubstance : item))
-          .sort((a, b) => a.name.localeCompare(b.name)),
+        prev.map((item) => (item.id === updatedSubstance.id ? updatedSubstance : item)),
       );
       toast.success("Substância atualizada com sucesso.");
       handleCloseEditDialog();
     } catch (error) {
-      console.error("Erro ao atualizar substância:", error);
-      toast.error("Erro inesperado ao atualizar a substância.");
+      if (error instanceof ApiError) {
+        toast.error(
+          error.message ??
+            "Não foi possível atualizar a substância. Verifique os dados e tente novamente.",
+        );
+      } else {
+        console.error("Erro ao atualizar substância:", error);
+        toast.error("Erro inesperado ao atualizar a substância.");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -200,26 +181,17 @@ export function SubstancesList({ substances }: SubstancesListProps) {
     setIsDeleting(true);
 
     try {
-      const response = await fetch(`/api/substances/${substanceToDelete.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível remover a substância.";
-        toast.error(detail);
-        return;
-      }
-
+      await deleteSubstanceRequest(substanceToDelete.id);
       setItems((prev) => prev.filter((item) => item.id !== substanceToDelete.id));
       toast.success("Substância removida com sucesso.");
       handleCloseDeleteDialog();
     } catch (error) {
-      console.error("Erro ao remover substância:", error);
-      toast.error("Erro inesperado ao remover a substância.");
+      if (error instanceof ApiError) {
+        toast.error(error.message ?? "Não foi possível remover a substância.");
+      } else {
+        console.error("Erro ao remover substância:", error);
+        toast.error("Erro inesperado ao remover a substância.");
+      }
     } finally {
       setIsDeleting(false);
     }

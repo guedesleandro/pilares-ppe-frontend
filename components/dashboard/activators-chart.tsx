@@ -1,8 +1,15 @@
 "use client";
 
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { formatNumberPt } from "@/lib/utils";
-import type { ActivatorUsageItem } from "@/app/api/dashboard/stats/route";
+import type { ActivatorUsageItem } from "@/lib/api";
 
 type ActivatorsChartProps = {
   data: ActivatorUsageItem[];
