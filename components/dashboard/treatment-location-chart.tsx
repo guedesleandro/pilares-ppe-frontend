@@ -9,42 +9,28 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { formatNumberPt } from "@/lib/utils";
-import type { MedicationPreferenceItem } from "@/lib/api";
+import type { TreatmentLocationDistributionItem } from "@/lib/api";
 
-type MedicationsChartProps = {
-  data: MedicationPreferenceItem[];
+type TreatmentLocationChartProps = {
+  data: TreatmentLocationDistributionItem[];
 };
 
-// Comentário em pt-BR: cores para o gráfico de pizza
-// const COLORS = [
-//   "#0088FE",
-//   "#00C49F",
-//   "#FFBB28",
-//   "#FF8042",
-//   "#8884d8",
-//   "#82ca9d",
-//   "#ffc658",
-//   "#ff7c7c",
-// ];
 const COLORS = [
-    "var(--chart-1)",
-    "var(--chart-2)",
-    "var(--chart-3)",
-    "var(--chart-4)",
-    "var(--chart-5)",
+  "var(--chart-1)",
+  "var(--chart-2)",
 ];
 
-export function MedicationsChart({ data }: MedicationsChartProps) {
+export function TreatmentLocationChart({ data }: TreatmentLocationChartProps) {
   if (!data || data.length === 0) {
     return (
       <div className="flex h-[400px] items-center justify-center text-muted-foreground">
-        Nenhuma medicação preferencial registrada ainda
+        Nenhum paciente cadastrado ainda
       </div>
     );
   }
 
   const chartData = data.map((item) => ({
-    name: item.name,
+    name: item.location,
     value: item.count,
   }));
 

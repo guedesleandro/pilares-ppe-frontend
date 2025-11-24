@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { PatientEditDialog } from "./patient-edit-dialog";
+import { ApiError, deletePatient as deletePatientRequest } from "@/lib/api";
 
 type PatientActionsProps = {
   patientId: string;
@@ -40,27 +41,18 @@ export function PatientActions({ patientId, patientName, patientData }: PatientA
   async function handleDelete() {
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/patients/${patientId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível remover o paciente.";
-        toast.error(detail);
-        return;
-      }
-
+      await deletePatientRequest(patientId);
       toast.success("Paciente removido com sucesso.");
       setIsDeleteDialogOpen(false);
       router.push("/dashboard/pacientes");
       router.refresh();
     } catch (error) {
-      console.error("Erro ao remover paciente:", error);
-      toast.error("Erro inesperado ao remover o paciente.");
+      if (error instanceof ApiError) {
+        toast.error(error.message ?? "Não foi possível remover o paciente.");
+      } else {
+        console.error("Erro ao remover paciente:", error);
+        toast.error("Erro inesperado ao remover o paciente.");
+      }
     } finally {
       setIsDeleting(false);
     }

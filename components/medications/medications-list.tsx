@@ -32,12 +32,15 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@/components/ui/item";
+import {
+  ApiError,
+  type Medication,
+  createMedication as createMedicationRequest,
+  deleteMedication as deleteMedicationRequest,
+  updateMedication as updateMedicationRequest,
+} from "@/lib/api";
 
-export type Medication = {
-  id: string;
-  name: string;
-  created_at: string;
-};
+export type { Medication } from "@/lib/api";
 
 type MedicationsListProps = {
   medications: Medication[];
@@ -103,32 +106,20 @@ export function MedicationsList({ medications }: MedicationsListProps) {
     setAddFormError(null);
 
     try {
-      const response = await fetch("/api/medications", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: trimmedName }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível criar a medicação.";
-        setAddFormError(detail);
-        toast.error(detail);
-        return;
-      }
-
-      const newMedication = (await response.json()) as Medication;
+      const newMedication = await createMedicationRequest({ name: trimmedName });
       setItems((prev) => [...prev, newMedication].sort((a, b) => a.name.localeCompare(b.name)));
       toast.success("Medicação criada com sucesso.");
       handleCloseAddDialog();
     } catch (error) {
-      console.error("Erro ao criar medicação:", error);
-      toast.error("Erro inesperado ao criar a medicação.");
+      if (error instanceof ApiError) {
+        const message =
+          error.message ?? "Não foi possível criar a medicação. Tente novamente.";
+        setAddFormError(message);
+        toast.error(message);
+      } else {
+        console.error("Erro ao criar medicação:", error);
+        toast.error("Erro inesperado ao criar a medicação.");
+      }
     } finally {
       setIsAdding(false);
     }
@@ -149,25 +140,10 @@ export function MedicationsList({ medications }: MedicationsListProps) {
     setFormError(null);
 
     try {
-      const response = await fetch(`/api/medications/${selectedMedication.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: trimmedName }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível atualizar a medicação.";
-        toast.error(detail);
-        return;
-      }
-
-      const updatedMedication = (await response.json()) as Medication;
+      const updatedMedication = await updateMedicationRequest(
+        selectedMedication.id,
+        { name: trimmedName },
+      );
       setItems((prev) =>
         prev.map((item) =>
           item.id === updatedMedication.id ? updatedMedication : item,
@@ -176,8 +152,15 @@ export function MedicationsList({ medications }: MedicationsListProps) {
       toast.success("Medicação atualizada com sucesso.");
       handleCloseEditDialog();
     } catch (error) {
-      console.error("Erro ao atualizar medicação:", error);
-      toast.error("Erro inesperado ao atualizar a medicação.");
+      if (error instanceof ApiError) {
+        toast.error(
+          error.message ??
+            "Não foi possível atualizar a medicação. Verifique os dados e tente novamente.",
+        );
+      } else {
+        console.error("Erro ao atualizar medicação:", error);
+        toast.error("Erro inesperado ao atualizar a medicação.");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -200,26 +183,17 @@ export function MedicationsList({ medications }: MedicationsListProps) {
     setIsDeleting(true);
 
     try {
-      const response = await fetch(`/api/medications/${medicationToDelete.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível remover a medicação.";
-        toast.error(detail);
-        return;
-      }
-
+      await deleteMedicationRequest(medicationToDelete.id);
       setItems((prev) => prev.filter((item) => item.id !== medicationToDelete.id));
       toast.success("Medicação removida com sucesso.");
       handleCloseDeleteDialog();
     } catch (error) {
-      console.error("Erro ao remover medicação:", error);
-      toast.error("Erro inesperado ao remover a medicação.");
+      if (error instanceof ApiError) {
+        toast.error(error.message ?? "Não foi possível remover a medicação.");
+      } else {
+        console.error("Erro ao remover medicação:", error);
+        toast.error("Erro inesperado ao remover a medicação.");
+      }
     } finally {
       setIsDeleting(false);
     }

@@ -29,12 +29,21 @@ import {
 import type {
   CycleWithSessions,
   SessionDetails,
-} from "@/app/api/patients/[patientId]/summary/route";
-import type { Medication } from "@/app/api/medications/route";
-import type { Activator } from "@/app/api/activators/route";
+  Medication,
+  Activator,
+} from "@/lib/api";
+import {
+  ApiError,
+  createCycleForPatient,
+  createSession as createSessionRequest,
+  deleteCycle as deleteCycleRequest,
+  deleteSession as deleteSessionRequest,
+  listActivators,
+  listMedications,
+} from "@/lib/api";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Collapsible,
   CollapsibleContent,
@@ -178,9 +187,9 @@ const sessionFormSchema = z.object({
     .refine(
       (value) =>
         !value ||
-        (!Number.isNaN(Number(value)) && Number(value) > 0 && Number.isInteger(Number(value))),
+        (!Number.isNaN(Number(value)) && Number(value) > 0),
       {
-        message: "A dosagem deve ser um número inteiro positivo",
+        message: "A dosagem deve ser um número positivo",
       },
     ),
   notes: z
@@ -191,7 +200,7 @@ const sessionFormSchema = z.object({
     weight_kg: decimalStringField("Peso (kg)", { min: 1 }),
     fat_percentage: decimalStringField("Gordura (%)", { min: 1, max: 80 }),
     fat_kg: decimalStringField("Gordura (kg)", { min: 1 }),
-    muscle_mass_kg: decimalStringField("Massa muscular (kg)", { min: 1 }),
+    muscle_mass_percentage: decimalStringField("Massa muscular (%)", { min: 1, max: 100 }),
     h2o_percentage: decimalStringField("H2O (%)", { min: 1, max: 80 }),
     metabolic_age: integerStringField("Idade metabólica", { min: 10, max: 120 }),
     visceral_fat: integerStringField("Gordura visceral", { min: 1, max: 40 }),
@@ -240,19 +249,19 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
     async function loadOptions() {
       setLoadingOptions(true);
       try {
-        const [medicationsResponse, activatorsResponse] = await Promise.all([
-          fetch("/api/medications"),
-          fetch("/api/activators"),
+        const [meds, activatorsData] = await Promise.all([
+          listMedications(),
+          listActivators(),
         ]);
 
-        if (medicationsResponse.ok && isMounted) {
-          const meds = (await medicationsResponse.json()) as MedicationOption[];
-          setMedications(meds);
-        }
-
-        if (activatorsResponse.ok && isMounted) {
-          const data = (await activatorsResponse.json()) as Activator[];
-          setActivators(data.map(({ id, name }) => ({ id, name })));
+        if (isMounted) {
+          setMedications(meds ?? []);
+          setActivators(
+            activatorsData.map(({ id, name }) => ({
+              id,
+              name,
+            })),
+          );
         }
       } catch (error) {
         console.error("Erro ao carregar listas auxiliares:", error);
@@ -291,7 +300,7 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
         weight_kg: "",
         fat_percentage: "",
         fat_kg: "",
-        muscle_mass_kg: "",
+        muscle_mass_percentage: "",
         h2o_percentage: "",
         metabolic_age: "",
         visceral_fat: "",
@@ -341,7 +350,7 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
         weight_kg: "",
         fat_percentage: "",
         fat_kg: "",
-        muscle_mass_kg: "",
+        muscle_mass_percentage: "",
         h2o_percentage: "",
         metabolic_age: "",
         visceral_fat: "",
@@ -357,30 +366,12 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
   const onCreateCycle = async (values: CreateCycleFormValues) => {
     setCycleSubmitting(true);
     try {
-      const response = await fetch(
-        `/api/patients/${patientId}/cycles`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            cycle_date: buildCycleDateIso(values.cycle_date),
-            max_sessions: values.max_sessions,
-            periodicity: values.periodicity,
-            type: values.type,
-          }),
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        toast.error(
-          errorData?.detail ?? "Não foi possível criar o ciclo. Tente novamente.",
-        );
-        return;
-      }
-
+      await createCycleForPatient(patientId, {
+        cycle_date: buildCycleDateIso(values.cycle_date),
+        max_sessions: values.max_sessions,
+        periodicity: values.periodicity,
+        type: values.type,
+      });
       toast.success("Ciclo criado com sucesso!");
       setCycleDialogOpen(false);
       cycleForm.reset({
@@ -391,8 +382,14 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
       });
       startTransition(() => router.refresh());
     } catch (error) {
-      console.error("Erro inesperado ao criar ciclo:", error);
-      toast.error("Erro inesperado ao criar o ciclo.");
+      if (error instanceof ApiError) {
+        toast.error(
+          error.message ?? "Não foi possível criar o ciclo. Tente novamente.",
+        );
+      } else {
+        console.error("Erro inesperado ao criar ciclo:", error);
+        toast.error("Erro inesperado ao criar o ciclo.");
+      }
     } finally {
       setCycleSubmitting(false);
     }
@@ -408,32 +405,20 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
     try {
       const payload = buildSessionPayload(selectedCycleForSession.id, values);
 
-      const response = await fetch(
-        `/api/cycles/${selectedCycleForSession.id}/sessions`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        toast.error(
-          errorData?.detail ??
-            "Não foi possível registar a sessão. Verifique os dados e tente novamente.",
-        );
-        return;
-      }
-
+      await createSessionRequest(selectedCycleForSession.id, payload);
       toast.success("Sessão registada com sucesso!");
       closeSessionDialog();
       startTransition(() => router.refresh());
     } catch (error) {
-      console.error("Erro inesperado ao criar sessão:", error);
-      toast.error("Erro inesperado ao criar a sessão.");
+      if (error instanceof ApiError) {
+        toast.error(
+          error.message ??
+            "Não foi possível registar a sessão. Verifique os dados e tente novamente.",
+        );
+      } else {
+        console.error("Erro inesperado ao criar sessão:", error);
+        toast.error("Erro inesperado ao criar a sessão.");
+      }
     } finally {
       setSessionSubmitting(false);
     }
@@ -442,26 +427,16 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
   const onDeleteCycle = async (cycleId: string) => {
     setIsDeletingCycle(cycleId);
     try {
-      const response = await fetch(
-        `/api/patients/${patientId}/cycles?cycle_id=${cycleId}`,
-        {
-          method: "DELETE",
-        },
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        toast.error(
-          errorData?.detail ?? "Não foi possível deletar o ciclo. Tente novamente.",
-        );
-        return;
-      }
-
+      await deleteCycleRequest(cycleId);
       toast.success("Ciclo deletado com sucesso!");
       startTransition(() => router.refresh());
     } catch (error) {
-      console.error("Erro inesperado ao deletar ciclo:", error);
-      toast.error("Erro inesperado ao deletar o ciclo.");
+      if (error instanceof ApiError) {
+        toast.error(error.message ?? "Não foi possível deletar o ciclo. Tente novamente.");
+      } else {
+        console.error("Erro inesperado ao deletar ciclo:", error);
+        toast.error("Erro inesperado ao deletar o ciclo.");
+      }
     } finally {
       setIsDeletingCycle(null);
     }
@@ -470,23 +445,16 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
   const onDeleteSession = async (sessionId: string) => {
     setIsDeletingSession(sessionId);
     try {
-      const response = await fetch(`/api/sessions/${sessionId}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        toast.error(
-          errorData?.detail ?? "Não foi possível deletar a sessão. Tente novamente.",
-        );
-        return;
-      }
-
+      await deleteSessionRequest(sessionId);
       toast.success("Sessão deletada com sucesso!");
       startTransition(() => router.refresh());
     } catch (error) {
-      console.error("Erro inesperado ao deletar sessão:", error);
-      toast.error("Erro inesperado ao deletar a sessão.");
+      if (error instanceof ApiError) {
+        toast.error(error.message ?? "Não foi possível deletar a sessão. Tente novamente.");
+      } else {
+        console.error("Erro inesperado ao deletar sessão:", error);
+        toast.error("Erro inesperado ao deletar a sessão.");
+      }
     } finally {
       setIsDeletingSession(null);
     }
@@ -871,12 +839,12 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
               className="space-y-5"
               onSubmit={sessionForm.handleSubmit(onCreateSession)}
             >
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="flex gap-4">
                 <FormField
                   control={sessionForm.control}
                   name="session_date"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex-1">
                       <FormLabel>Data e hora</FormLabel>
                       <FormControl>
                         <Input
@@ -894,7 +862,7 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
                   control={sessionForm.control}
                   name="medication_id"
                   render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="flex-1">
                       <FormLabel>Medicação</FormLabel>
                       <Select
                         value={field.value}
@@ -920,6 +888,25 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
                           )}
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={sessionForm.control}
+                  name="dosage_mg"
+                  render={({ field }) => (
+                    <FormItem className="flex-1">
+                      <FormLabel>Dosagem (mg)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={field.value ?? ""}
+                          onChange={(event) => field.onChange(event.target.value)}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -955,25 +942,6 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
                     </FormItem>
                   )}
                 />
-
-                <FormField
-                  control={sessionForm.control}
-                  name="dosage_mg"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Dosagem (mg)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={field.value ?? ""}
-                          onChange={(event) => field.onChange(event.target.value)}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
               </div>
 
               <div className="space-y-3 rounded-xl border border-border/60 p-4">
@@ -1004,8 +972,8 @@ export function PatientCycles({ patientId, cycles, preferredMedicationId }: Pati
                   />
                   <CompositionFieldInput
                     control={sessionForm.control}
-                    name="body_composition.muscle_mass_kg"
-                    label="Massa muscular (kg)"
+                    name="body_composition.muscle_mass_percentage"
+                    label="Massa muscular (%)"
                   />
                   <CompositionFieldInput
                     control={sessionForm.control}
@@ -1143,15 +1111,6 @@ function calculateCompositionDifference(
 }
 
 function SessionCard({ session, index, sessions, expanded, onToggleNotes, onDeleteSession, isDeletingSession }: SessionCardProps) {
-  const dateLabel =
-    formatDatePt(session.session_date, {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }) ?? "Sem data";
-
   // Obter sessão anterior para calcular diferenças
   const previousSession = index > 0 ? sessions[index - 1] : null;
 
@@ -1172,13 +1131,13 @@ function SessionCard({ session, index, sessions, expanded, onToggleNotes, onDele
   );
 
   const muscleMass = formatNumberPt(
-    session.body_composition?.muscle_mass_kg,
+    session.body_composition?.muscle_mass_percentage,
     1,
     1,
   );
   const muscleMassDiff = calculateCompositionDifference(
-    session.body_composition?.muscle_mass_kg,
-    previousSession?.body_composition?.muscle_mass_kg,
+    session.body_composition?.muscle_mass_percentage,
+    previousSession?.body_composition?.muscle_mass_percentage,
   );
 
   const h2oPercentage = formatNumberPt(
@@ -1310,7 +1269,7 @@ function SessionCard({ session, index, sessions, expanded, onToggleNotes, onDele
           label="Dosagem"
           value={
             session.dosage_mg
-              ? `${formatNumberPt(session.dosage_mg, 0, 0)} mg`
+              ? `${formatNumberPt(session.dosage_mg, 1, 2)} mg`
               : "Não informado"
           }
         />
@@ -1335,7 +1294,7 @@ function SessionCard({ session, index, sessions, expanded, onToggleNotes, onDele
           <div className="mt-1 flex flex-wrap gap-3">
             {renderCompositionSpan("Peso", weightLabel ? `${weightLabel} kg` : null, weightDiff)}
             {renderCompositionSpan("Gordura", fatPercentage ? `${fatPercentage}%` : null, fatPercentageDiff)}
-            {renderCompositionSpan("Massa muscular", muscleMass ? `${muscleMass} kg` : null, muscleMassDiff)}
+            {renderCompositionSpan("Massa muscular", muscleMass ? `${muscleMass}%` : null, muscleMassDiff)}
             {renderCompositionSpan("H2O", h2oPercentage ? `${h2oPercentage}%` : null, h2oPercentageDiff)}
             {renderCompositionSpan("Idade metabólica", metabolicAge, metabolicAgeDiff)}
             {renderCompositionSpan("Gordura visceral", visceralFat, visceralFatDiff)}
@@ -1464,12 +1423,12 @@ function buildSessionPayload(
     notes: values.notes?.trim() ? values.notes.trim() : null,
     medication_id: values.medication_id,
     activator_id: values.activator_id ? values.activator_id : null,
-    dosage_mg: values.dosage_mg ? Number(values.dosage_mg) : null,
+    dosage_mg: values.dosage_mg ? parseDecimal(values.dosage_mg) : null,
     body_composition: {
       weight_kg: parseDecimal(values.body_composition.weight_kg),
       fat_percentage: parseDecimal(values.body_composition.fat_percentage),
       fat_kg: parseDecimal(values.body_composition.fat_kg),
-      muscle_mass_kg: parseDecimal(values.body_composition.muscle_mass_kg),
+      muscle_mass_percentage: parseDecimal(values.body_composition.muscle_mass_percentage),
       h2o_percentage: parseDecimal(values.body_composition.h2o_percentage),
       metabolic_age: parseDecimal(values.body_composition.metabolic_age),
       visceral_fat: parseDecimal(values.body_composition.visceral_fat),

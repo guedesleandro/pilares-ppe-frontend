@@ -37,6 +37,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { clearAuthTokenCookie } from "@/lib/api";
 
 type AppSidebarProps = {
   user: CurrentUser | null;
@@ -78,12 +79,9 @@ export function AppSidebar({
   }, [pathname]);
 
   const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } finally {
-      router.push("/login");
-      router.refresh();
-    }
+    clearAuthTokenCookie();
+    // Comentário em pt-BR: usa hard redirect para garantir que o cookie seja limpo no servidor
+    window.location.href = "/login";
   };
 
   const isDashboard = pathname === "/dashboard";

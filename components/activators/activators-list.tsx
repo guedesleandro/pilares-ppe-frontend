@@ -39,19 +39,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  ApiError,
+  type Activator,
+  createActivator as createActivatorRequest,
+  deleteActivator as deleteActivatorRequest,
+  updateActivator as updateActivatorRequest,
+} from "@/lib/api";
 
-export type ActivatorComposition = {
-  substance_id: string;
-  substance_name: string;
-  volume_ml: number;
-};
-
-export type Activator = {
-  id: string;
-  name: string;
-  created_at: string;
-  compositions: ActivatorComposition[];
-};
+export type { Activator, ActivatorComposition } from "@/lib/api";
 
 export type SubstanceOption = {
   id: string;
@@ -124,12 +120,6 @@ export function ActivatorsList({ activators, substances }: ActivatorsListProps) 
   }, [activators]);
 
   const hasSubstances = substances.length > 0;
-
-  const substanceOptionsById = useMemo(() => {
-    const map = new Map<string, string>();
-    substances.forEach((substance) => map.set(substance.id, substance.name));
-    return map;
-  }, [substances]);
 
   const formatVolume = (value: number) => `${decimalFormatter.format(value)} ml`;
 
@@ -302,33 +292,23 @@ export function ActivatorsList({ activators, substances }: ActivatorsListProps) 
     setIsAdding(true);
 
     try {
-      const response = await fetch("/api/activators", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(buildPayload(trimmedName, addCompositions)),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível criar o ativador.";
-        toast.error(detail);
-        return;
-      }
-
-      const newActivator = (await response.json()) as Activator;
+      const newActivator = await createActivatorRequest(
+        buildPayload(trimmedName, addCompositions),
+      );
       setItems((prev) =>
         [...prev, newActivator].sort((a, b) => a.name.localeCompare(b.name)),
       );
       toast.success("Ativador criado com sucesso.");
       handleCloseAddDialog();
     } catch (error) {
-      console.error("Erro ao criar ativador:", error);
-      toast.error("Erro inesperado ao criar o ativador.");
+      if (error instanceof ApiError) {
+        toast.error(
+          error.message || "Não foi possível criar o ativador. Tente novamente.",
+        );
+      } else {
+        console.error("Erro ao criar ativador:", error);
+        toast.error("Erro inesperado ao criar o ativador.");
+      }
     } finally {
       setIsAdding(false);
     }
@@ -362,33 +342,25 @@ export function ActivatorsList({ activators, substances }: ActivatorsListProps) 
     setIsSaving(true);
 
     try {
-      const response = await fetch(`/api/activators/${selectedActivator.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(buildPayload(trimmedName, editCompositions)),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível atualizar o ativador.";
-        toast.error(detail);
-        return;
-      }
-
-      const updatedActivator = (await response.json()) as Activator;
+      const updatedActivator = await updateActivatorRequest(
+        selectedActivator.id,
+        buildPayload(trimmedName, editCompositions),
+      );
       setItems((prev) =>
         prev.map((item) => (item.id === updatedActivator.id ? updatedActivator : item)),
       );
       toast.success("Ativador atualizado com sucesso.");
       handleCloseEditDialog();
     } catch (error) {
-      console.error("Erro ao atualizar ativador:", error);
-      toast.error("Erro inesperado ao atualizar o ativador.");
+      if (error instanceof ApiError) {
+        toast.error(
+          error.message ??
+            "Não foi possível atualizar o ativador. Verifique os dados e tente novamente.",
+        );
+      } else {
+        console.error("Erro ao atualizar ativador:", error);
+        toast.error("Erro inesperado ao atualizar o ativador.");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -402,26 +374,17 @@ export function ActivatorsList({ activators, substances }: ActivatorsListProps) 
     setIsDeleting(true);
 
     try {
-      const response = await fetch(`/api/activators/${activatorToDelete.id}`, {
-        method: "DELETE",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível remover o ativador.";
-        toast.error(detail);
-        return;
-      }
-
+      await deleteActivatorRequest(activatorToDelete.id);
       setItems((prev) => prev.filter((item) => item.id !== activatorToDelete.id));
       toast.success("Ativador removido com sucesso.");
       handleCloseDeleteDialog();
     } catch (error) {
-      console.error("Erro ao remover ativador:", error);
-      toast.error("Erro inesperado ao remover o ativador.");
+      if (error instanceof ApiError) {
+        toast.error(error.message ?? "Não foi possível remover o ativador.");
+      } else {
+        console.error("Erro ao remover ativador:", error);
+        toast.error("Erro inesperado ao remover o ativador.");
+      }
     } finally {
       setIsDeleting(false);
     }

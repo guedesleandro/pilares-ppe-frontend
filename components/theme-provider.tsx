@@ -37,6 +37,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Comentário em pt-BR: garante que rodamos apenas no cliente
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
 
@@ -49,6 +50,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       | null;
 
     if (storedTheme === "dark" || storedTheme === "light") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTheme(storedTheme);
       applyThemeToDocument(storedTheme);
       return;

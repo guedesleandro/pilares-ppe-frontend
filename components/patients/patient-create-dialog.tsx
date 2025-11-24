@@ -34,6 +34,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { parseDatePt, applyDateMask, createMaskedInputHandler } from "@/lib/utils";
+import {
+  ApiError,
+  createPatient as createPatientRequest,
+  listMedications,
+  type Medication,
+} from "@/lib/api";
 
 const GENDER_OPTIONS = [
   { value: "male", label: "Masculino" },
@@ -45,10 +51,7 @@ const TREATMENT_LOCATION_OPTIONS = [
   { value: "home", label: "Domiciliar" },
 ] as const;
 
-type MedicationOption = {
-  id: string;
-  name: string;
-};
+type MedicationOption = Pick<Medication, "id" | "name">;
 
 const patientCreateSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
@@ -98,17 +101,8 @@ export function PatientCreateDialog({
     async function loadMedications() {
       setIsLoadingMedications(true);
       try {
-        const response = await fetch("/api/medications", {
-          cache: "no-store",
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setMedications(data || []);
-        } else {
-          console.error("Erro ao carregar medicações:", response.statusText);
-          setMedications([]);
-        }
+        const data = await listMedications();
+        setMedications(data || []);
       } catch (error) {
         console.error("Erro ao carregar medicações:", error);
         setMedications([]);
@@ -141,33 +135,21 @@ export function PatientCreateDialog({
         preferred_medication_id: data.preferred_medication_id === "none" ? null : data.preferred_medication_id || null,
       };
 
-      const response = await fetch("/api/patients", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const detail =
-          typeof errorData?.detail === "string"
-            ? errorData.detail
-            : "Não foi possível criar o paciente.";
-        toast.error(detail);
-        return;
-      }
-
-      const newPatient = await response.json();
+      const newPatient = await createPatientRequest(payload);
       toast.success("Paciente criado com sucesso.");
       onOpenChange(false);
 
       // Redirecionar para a página do paciente
       router.push(`/dashboard/pacientes/${newPatient.id}`);
     } catch (error) {
-      console.error("Erro ao criar paciente:", error);
-      toast.error("Erro inesperado ao criar o paciente.");
+      if (error instanceof ApiError) {
+        toast.error(
+          error.message ?? "Não foi possível criar o paciente. Tente novamente.",
+        );
+      } else {
+        console.error("Erro ao criar paciente:", error);
+        toast.error("Erro inesperado ao criar o paciente.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -187,6 +169,20 @@ export function PatientCreateDialog({
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
+              name="process_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Código do Processo</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Ex: PROC-001" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
@@ -199,121 +195,111 @@ export function PatientCreateDialog({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="gender"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Gênero</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o gênero" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {GENDER_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="birth_date"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Data de nascimento</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="dd/mm/yyyy"
-                      value={field.value}
-                      onChange={createMaskedInputHandler(field.onChange, applyDateMask)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="process_number"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Código do processo</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Ex: PROC-001" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="treatment_location"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Local de tratamento</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o local" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {TREATMENT_LOCATION_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="preferred_medication_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Medicação preferencial</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione uma medicação" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhuma</SelectItem>
-                      {isLoadingMedications ? (
-                        <SelectItem value="loading" disabled>
-                          Carregando medicações...
-                        </SelectItem>
-                      ) : (
-                        medications.map((medication) => (
-                          <SelectItem key={medication.id} value={medication.id}>
-                            {medication.name}
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="gender"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Gênero</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o gênero" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {GENDER_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            <DialogFooter>
+              <FormField
+                control={form.control}
+                name="birth_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Data de Nascimento</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="dd/mm/yyyy"
+                        value={field.value}
+                        onChange={createMaskedInputHandler(field.onChange, applyDateMask)}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="treatment_location"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Local de tratamento</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o local" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {TREATMENT_LOCATION_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="preferred_medication_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Medicação Preferencial</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione uma medicação" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhuma</SelectItem>
+                        {isLoadingMedications ? (
+                          <SelectItem value="loading" disabled>
+                            Carregando medicações...
+                          </SelectItem>
+                        ) : (
+                          medications.map((medication) => (
+                            <SelectItem key={medication.id} value={medication.id}>
+                              {medication.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <DialogFooter className="mt-8">
               <Button
                 type="button"
                 variant="outline"

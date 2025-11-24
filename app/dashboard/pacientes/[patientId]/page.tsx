@@ -1,9 +1,6 @@
 import { AlertTriangle, ArrowDownRight, ArrowUpRight } from "lucide-react";
 
-import {
-  getPatientSummary,
-  type BodyCompositionSummary,
-} from "@/app/api/patients/[patientId]/summary/route";
+import { getPatientSummary, type BodyCompositionSummary } from "@/lib/api";
 import { PatientActions } from "@/components/patients/patient-actions";
 import { PatientCycles } from "@/components/patients/patient-cycles";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -62,9 +59,9 @@ const COMPOSITION_FIELDS: CompositionField[] = [
     showTrend: true,
   },
   {
-    key: "muscle_mass_kg",
+    key: "muscle_mass_percentage",
     label: "Massa muscular",
-    unit: "kg",
+    unit: "%",
     digits: { min: 1, max: 1 },
     showTrend: true,
   },
