@@ -91,11 +91,8 @@ export function AppSidebar({
   return (
     <Sidebar variant={variant} collapsible={collapsible}>
       <SidebarHeader>
-        <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/60 px-3 py-2">
-          <div className="flex size-10 items-center justify-center rounded-md bg-primary text-base font-semibold text-primary-foreground">
-            PPE
-          </div>
-          <div className="flex flex-col text-sm font-semibold leading-tight group-data-[collapsible=icon]:hidden">
+        <div className="flex items-center gap-3 rounded-lg bg-sidebar-accent/60 px-3 py-2 group-data-[collapsible=icon]:hidden">
+          <div className="flex flex-col text-sm font-semibold leading-tight">
             <span>Pilares da Saúde</span>
             <span className="text-xs text-sidebar-foreground/70">
               Gestão de Emagrecimento
@@ -106,7 +103,6 @@ export function AppSidebar({
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navegação</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem>

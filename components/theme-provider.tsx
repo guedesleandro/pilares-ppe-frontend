@@ -21,7 +21,6 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 const THEME_STORAGE_KEY = "ppe-theme";
 
 function applyThemeToDocument(theme: Theme) {
-  // Comentário em pt-BR: aplica ou remove a classe `dark` no elemento raiz
   if (typeof document === "undefined") return;
 
   if (theme === "dark") {
@@ -36,7 +35,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
-    // Comentário em pt-BR: garante que rodamos apenas no cliente
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
@@ -44,7 +42,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!isMounted) return;
 
-    // Comentário em pt-BR: tenta ler o tema salvo, senão usa prefers-color-scheme
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY) as
       | Theme
       | null;

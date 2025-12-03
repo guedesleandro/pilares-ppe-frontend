@@ -67,7 +67,7 @@ export function LoginForm() {
       <CardHeader>
         <CardTitle>Entrar</CardTitle>
         <CardDescription>
-          Acesse o painel da gestão de pacientes.
+          Acesse o painel da gestão de pacientes de emagrecimento.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -80,13 +80,13 @@ export function LoginForm() {
               autoComplete="username"
               value={username}
               onChange={(event) => setUsername(event.target.value)}
-              placeholder="Digite seu usuário"
+              placeholder="Digite seu e-mail"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Senha</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               name="password"
