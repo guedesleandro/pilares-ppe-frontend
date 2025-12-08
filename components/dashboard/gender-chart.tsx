@@ -67,3 +67,6 @@ export function GenderChart({ data }: GenderChartProps) {
 
 
 
+
+
+
